@@ -1,0 +1,1 @@
+# amanoukihashi.nvim
