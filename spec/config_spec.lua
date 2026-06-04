@@ -1,0 +1,37 @@
+local config = require("amanoukihashi.config")
+
+describe("config.normalize", function()
+  it("デフォルト値を返す", function()
+    local result = config.normalize()
+    assert.same({ "claude" }, result.default_cmd)
+    assert.equal(0.45, result.float.width)
+    assert.equal(0.85, result.float.height)
+    assert.equal("rounded", result.float.border)
+  end)
+
+  it("ユーザー設定をデフォルトにマージする", function()
+    local result = config.normalize({ float = { width = 0.8 } })
+    assert.equal(0.8, result.float.width)
+    assert.equal(0.85, result.float.height)
+  end)
+
+  it("default_cmd を上書きできる", function()
+    local result = config.normalize({ default_cmd = { "gemini" } })
+    assert.same({ "gemini" }, result.default_cmd)
+  end)
+
+  it("layout のデフォルトは float", function()
+    local result = config.normalize()
+    assert.equal("float", result.layout)
+  end)
+
+  it("split.width のデフォルトは 0.40", function()
+    local result = config.normalize()
+    assert.equal(0.40, result.split.width)
+  end)
+
+  it("layout を split に上書きできる", function()
+    local result = config.normalize({ layout = "split" })
+    assert.equal("split", result.layout)
+  end)
+end)
