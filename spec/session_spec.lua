@@ -1,8 +1,32 @@
 local session = require("amanoukihashi.session")
 
+-- tmux モジュールをスタブして CI でも tmux なしでテストできるようにする
+local function tmux_stub(session_exists)
+  return {
+    session_exists  = function() return session_exists end,
+    new_session_cmd = function() return { "sh" } end,
+    join_session_cmd= function() return { "sh" } end,
+    session_name    = function(n) return n end,
+    kill_session    = function() end,
+  }
+end
+
+local function open_win()
+  local buf = vim.api.nvim_create_buf(false, true)
+  local win = vim.api.nvim_open_win(buf, true, {
+    relative = "editor", width = 40, height = 10, row = 0, col = 0,
+  })
+  return buf, win
+end
+
 describe("session", function()
   before_each(function()
     session._reset()
+    package.loaded["amanoukihashi.tmux"] = tmux_stub(false)
+  end)
+
+  after_each(function()
+    package.loaded["amanoukihashi.tmux"] = nil
   end)
 
   it("current は初期状態で nil", function()
@@ -18,26 +42,48 @@ describe("session", function()
     assert.is_nil(session.get("nonexistent"))
   end)
 
-  it("create_in_win でセッションが作成されバッファが有効", function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    local win = vim.api.nvim_open_win(buf, true, {
-      relative = "editor", width = 40, height = 10, row = 0, col = 0,
-    })
-    local s = session.create_in_win("test", { "sh" }, win)
+  it("open でセッションが作成されバッファが有効", function()
+    local _, win = open_win()
+    local s = session.open("test", { "sh" }, win)
     assert.is_not_nil(s)
     assert.is_true(vim.api.nvim_buf_is_valid(s.buf))
     vim.api.nvim_win_close(win, true)
   end)
 
-  it("create_in_win 後に get で同じセッションを返す", function()
-    local buf = vim.api.nvim_create_buf(false, true)
-    local win = vim.api.nvim_open_win(buf, true, {
-      relative = "editor", width = 40, height = 10, row = 0, col = 0,
-    })
-    session.create_in_win("test", { "sh" }, win)
+  it("open 後に get で同じセッションを返す", function()
+    local _, win = open_win()
+    session.open("test", { "sh" }, win)
     local s = session.get("test")
     assert.is_not_nil(s)
     assert.is_true(vim.api.nvim_buf_is_valid(s.buf))
+    vim.api.nvim_win_close(win, true)
+  end)
+
+  it("tmux セッション既存時は join_session_cmd を使う", function()
+    package.loaded["amanoukihashi.tmux"] = tmux_stub(true)
+    local called_with = nil
+    local orig = vim.fn.jobstart
+    vim.fn.jobstart = function(cmd, opts)
+      called_with = cmd
+      return orig(cmd, opts)
+    end
+
+    local _, win = open_win()
+    local ok, err = pcall(session.open, "existing", { "sh" }, win)
+    vim.fn.jobstart = orig
+
+    assert.is_true(ok, err)
+    -- tmux_stub の join_session_cmd は {"sh"} を返す
+    assert.same({ "sh" }, called_with)
+    vim.api.nvim_win_close(win, true)
+  end)
+
+  it("kill でセッションがテーブルから除去される", function()
+    local _, win = open_win()
+    session.open("test", { "sh" }, win)
+    assert.is_not_nil(session.get("test"))
+    session.kill("test")
+    assert.is_nil(session.get("test"))
     vim.api.nvim_win_close(win, true)
   end)
 end)

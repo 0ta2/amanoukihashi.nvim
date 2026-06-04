@@ -1,7 +1,7 @@
 local M = {}
 
 local function start_session(name, cmd, win, on_fail)
-  local ok, ns = pcall(require("amanoukihashi.session").create_in_win, name, cmd, win)
+  local ok, ns = pcall(require("amanoukihashi.session").open, name, cmd, win)
   if not ok then
     vim.notify(ns, vim.log.levels.ERROR)
     on_fail()
