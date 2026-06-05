@@ -8,7 +8,10 @@ local function tmux(args)
 end
 
 function M.session_name(name)
-  return PREFIX .. name
+  local cwd  = vim.fn.getcwd()
+  local dir  = vim.fn.fnamemodify(cwd, ":t")
+  local hash = string.sub(vim.fn.sha256(cwd), 1, 6)
+  return PREFIX .. dir .. "_" .. hash .. "_" .. name
 end
 
 function M.session_exists(name)

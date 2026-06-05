@@ -34,6 +34,7 @@ function M.open(name, cmd, win)
     error(("amanoukihashi: jobstart failed for session: %s cmd: %s"):format(name, vim.inspect(term_cmd)))
   end
   sessions[name] = { buf = buf, job_id = job_id }
+  M.resize(win)
   return sessions[name]
 end
 
