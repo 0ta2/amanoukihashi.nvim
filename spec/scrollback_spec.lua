@@ -1,23 +1,18 @@
 local scrollback = require("amanoukihashi.scrollback")
+local H          = dofile(debug.getinfo(1, "S").source:sub(2):gsub("[^/]+$", "") .. "helpers.lua")
 
 local function tmux_stub(text)
   return {
     session_name     = function(n) return n end,
     session_exists   = function() return false end,
-    new_session_cmd  = function() return "sh" end,
+    new_session_cmd  = function() return { "sh" } end,
     join_session_cmd = function() return "sh" end,
     kill_session     = function() end,
     capture          = function() return text end,
   }
 end
 
-local function open_win()
-  local buf = vim.api.nvim_create_buf(false, true)
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = "editor", width = 40, height = 10, row = 0, col = 0,
-  })
-  return buf, win
-end
+local open_win = H.open_win
 
 describe("scrollback", function()
   before_each(function()

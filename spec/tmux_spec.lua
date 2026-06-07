@@ -47,4 +47,48 @@ describe("tmux", function()
     local result = tmux.capture("default")
     assert.is_nil(result)
   end)
+
+  describe("new_session_cmd", function()
+    local orig_shellescape
+
+    before_each(function()
+      orig_shellescape = vim.fn.shellescape
+      vim.fn.shellescape = function(s) return "'" .. s .. "'" end
+    end)
+
+    after_each(function()
+      vim.fn.shellescape = orig_shellescape
+    end)
+
+    it("cmd をテーブルで渡すと sh -lc に正しく渡る", function()
+      local result = tmux.new_session_cmd("default", { "bash" }, nil, nil)
+      assert.truthy(result:find("sh -lc", 1, true))
+      assert.truthy(result:find("bash", 1, true))
+      assert.truthy(result:find("test_session", 1, true))
+    end)
+
+    it("複数要素の cmd は各要素が引数境界を保って結合される", function()
+      local result = tmux.new_session_cmd("default", { "bash", "-c", "echo hello" }, nil, nil)
+      assert.truthy(result:find("sh -lc", 1, true))
+      assert.truthy(result:find("bash", 1, true))
+      assert.truthy(result:find("echo hello", 1, true))
+    end)
+
+    it("width/height を指定するとサイズフラグが含まれる", function()
+      local result = tmux.new_session_cmd("default", { "bash" }, 80, 24)
+      assert.truthy(result:find("-x 80 -y 24", 1, true))
+    end)
+
+    it("width/height が nil のときサイズフラグが含まれない", function()
+      local result = tmux.new_session_cmd("default", { "bash" }, nil, nil)
+      assert.falsy(result:find("-x ", 1, true))
+      assert.falsy(result:find("-y ", 1, true))
+    end)
+
+    it("文字列の cmd を渡すとエラーになる", function()
+      assert.has_error(function()
+        tmux.new_session_cmd("default", "bash", nil, nil)
+      end)
+    end)
+  end)
 end)

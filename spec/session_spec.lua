@@ -1,23 +1,18 @@
 local session = require("amanoukihashi.session")
+local H        = dofile(debug.getinfo(1, "S").source:sub(2):gsub("[^/]+$", "") .. "helpers.lua")
 
 -- tmux モジュールをスタブして CI でも tmux なしでテストできるようにする
 local function tmux_stub(session_exists)
   return {
     session_exists  = function() return session_exists end,
-    new_session_cmd = function() return "sh" end,
+    new_session_cmd = function() return { "sh" } end,
     join_session_cmd= function() return "sh" end,
     session_name    = function(n) return n end,
     kill_session    = function() end,
   }
 end
 
-local function open_win()
-  local buf = vim.api.nvim_create_buf(false, true)
-  local win = vim.api.nvim_open_win(buf, true, {
-    relative = "editor", width = 40, height = 10, row = 0, col = 0,
-  })
-  return buf, win
-end
+local open_win = H.open_win
 
 describe("session", function()
   before_each(function()
