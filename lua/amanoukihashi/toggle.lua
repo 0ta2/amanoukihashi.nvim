@@ -1,7 +1,7 @@
 local M = {}
 
 local function start_session(name, cmd, win, on_fail)
-  local ok, ns = pcall(require("amanoukihashi.session").create_in_win, name, cmd, win)
+  local ok, ns = pcall(require("amanoukihashi.session").open, name, cmd, win)
   if not ok then
     vim.notify(ns, vim.log.levels.ERROR)
     on_fail()
@@ -44,6 +44,7 @@ function M.toggle(name, opts)
   if s then
     window.swap(s.buf)
   else
+    require("amanoukihashi.scrollback").close(window.win())
     local prev_buf = vim.api.nvim_win_get_buf(window.win())
     local buf = vim.api.nvim_create_buf(false, true)
     vim.api.nvim_win_set_buf(window.win(), buf)

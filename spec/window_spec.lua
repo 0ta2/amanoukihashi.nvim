@@ -16,6 +16,7 @@ for _, cfg in ipairs({ float_cfg, split_cfg }) do
   describe("window (" .. cfg.layout .. ")", function()
     before_each(function()
       window._reset()
+      require("amanoukihashi.scrollback")._reset()
     end)
 
     after_each(function()
@@ -47,6 +48,25 @@ for _, cfg in ipairs({ float_cfg, split_cfg }) do
       window.open(buf1, cfg)
       window.swap(buf2)
       assert.equal(buf2, vim.api.nvim_win_get_buf(window.win()))
+    end)
+
+    it("swap でスクロールバックが開いていても閉じてからバッファ差し替え", function()
+      local buf1 = vim.api.nvim_create_buf(false, true)
+      local buf2 = vim.api.nvim_create_buf(false, true)
+      window.open(buf1, cfg)
+      -- stub tmux so scrollback.open works without a real tmux session
+      package.loaded["amanoukihashi.tmux"] = {
+        session_name = function(n) return n end,
+        capture = function() return "line1\nline2\n" end,
+      }
+      local scrollback = require("amanoukihashi.scrollback")
+      scrollback.open(window.win(), "test")
+      assert.is_true(scrollback.is_open(window.win()))
+      -- swap should close scrollback first
+      window.swap(buf2)
+      assert.is_false(scrollback.is_open(window.win()))
+      assert.equal(buf2, vim.api.nvim_win_get_buf(window.win()))
+      package.loaded["amanoukihashi.tmux"] = nil
     end)
 
     it("open 済みのウィンドウを再 open すると古いウィンドウが閉じる", function()

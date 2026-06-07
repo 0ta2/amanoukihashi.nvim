@@ -3,6 +3,7 @@ local M = {}
 local _win         = nil
 local _normal_mode = false
 local _cfg         = nil
+local _showmode    = nil
 
 local function float_opts(cfg)
   local w = math.max(math.floor(vim.o.columns * cfg.float.width), 80)
@@ -41,22 +42,32 @@ function M.open(buf, cfg)
   _cfg = cfg
   local opts = cfg.layout == "split" and split_opts(cfg) or float_opts(cfg)
   _win = vim.api.nvim_open_win(buf, true, opts)
+  -- signcolumn/statuscolumn の左パディングはターミナルのリフロー計算と干渉するため無効化
+  vim.wo[_win].signcolumn     = "no"
+  vim.wo[_win].statuscolumn   = ""
+  vim.wo[_win].number         = false
+  vim.wo[_win].relativenumber = false
+  vim.wo[_win].wrap           = false
   if cfg.layout == "split" then
-    vim.wo[_win].winfixwidth    = true
-    vim.wo[_win].signcolumn     = "no"
-    vim.wo[_win].statuscolumn   = ""
-    vim.wo[_win].number         = false
-    vim.wo[_win].relativenumber = false
-    vim.wo[_win].wrap           = false
+    vim.wo[_win].winfixwidth = true
   end
+
+  _showmode = vim.o.showmode
+  vim.o.showmode = false
 
   local group = vim.api.nvim_create_augroup("amanoukihashi_win_" .. _win, { clear = true })
 
-  vim.api.nvim_create_autocmd("TermLeave", {
+  local function fix_cursorline()
+    if not M.is_open() then return end
+    vim.wo[_win].cursorline = vim.fn.mode() ~= "t" and vim.api.nvim_get_current_win() == _win
+  end
+
+  vim.api.nvim_create_autocmd({ "TermLeave", "TermEnter" }, {
     group = group,
     callback = function()
       if vim.api.nvim_get_current_win() ~= _win then return end
       _normal_mode = vim.fn.mode() ~= "t"
+      fix_cursorline()
     end,
   })
 
@@ -64,11 +75,27 @@ function M.open(buf, cfg)
     group = group,
     callback = function()
       if vim.api.nvim_get_current_win() ~= _win then return end
+      if require("amanoukihashi.scrollback").is_open(_win) then return end
+      _showmode = vim.o.showmode
+      vim.o.showmode = false
+      fix_cursorline()
       if _normal_mode then
         vim.cmd("stopinsert")
       else
         vim.cmd("startinsert")
       end
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinLeave", {
+    group = group,
+    callback = function()
+      if vim.api.nvim_get_current_win() ~= _win then return end
+      if _showmode ~= nil then
+        vim.o.showmode = _showmode
+        _showmode = nil
+      end
+      fix_cursorline()
     end,
   })
 
@@ -79,8 +106,21 @@ function M.open(buf, cfg)
     callback = function()
       _win         = nil
       _normal_mode = false
+      if _showmode ~= nil then
+        vim.o.showmode = _showmode
+        _showmode = nil
+      end
       require("amanoukihashi.session").set_current(nil)
       vim.api.nvim_del_augroup_by_id(group)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("TermClose", {
+    group    = group,
+    callback = function(ev)
+      if not _win or not vim.api.nvim_win_is_valid(_win) then return end
+      if vim.api.nvim_win_get_buf(_win) ~= ev.buf then return end
+      vim.schedule(M.close)
     end,
   })
 
@@ -97,6 +137,13 @@ function M.open(buf, cfg)
     end,
   })
 
+  vim.keymap.set("t", "<C-q>", function()
+    local name = require("amanoukihashi.session").current()
+    if name then
+      require("amanoukihashi.scrollback").toggle(_win, name)
+    end
+  end, { buffer = buf, silent = true, desc = "scrollback" })
+
   if cfg.layout == "split" then
     for _, dir in ipairs({ "h", "j", "k", "l" }) do
       vim.keymap.set("t", "<C-" .. dir .. ">", function()
@@ -110,15 +157,21 @@ end
 
 function M.close()
   if M.is_open() then
+    require("amanoukihashi.scrollback").close(_win)
     _normal_mode = false
     pcall(vim.api.nvim_del_augroup_by_name, "amanoukihashi_win_" .. _win)
     vim.api.nvim_win_close(_win, true)
   end
   _win = nil
+  if _showmode ~= nil then
+    vim.o.showmode = _showmode
+    _showmode = nil
+  end
 end
 
 function M.swap(buf)
   if M.is_open() then
+    require("amanoukihashi.scrollback").close(_win)
     vim.api.nvim_win_set_buf(_win, buf)
     vim.cmd("startinsert")
   end
@@ -131,6 +184,10 @@ function M._reset()
   _win         = nil
   _normal_mode = false
   _cfg         = nil
+  if _showmode ~= nil then
+    vim.o.showmode = _showmode
+    _showmode = nil
+  end
 end
 
 return M
