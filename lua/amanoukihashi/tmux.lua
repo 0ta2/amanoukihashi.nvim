@@ -22,7 +22,8 @@ function M.session_name(name)
 end
 
 function M.session_exists(name)
-  return tmux({ "has-session", "-t", M.session_name(name) })
+  vim.fn.system({ "tmux", "has-session", "-t", M.session_name(name) })
+  return vim.v.shell_error == 0
 end
 
 function M.new_session_cmd(name, cmd, width, height)
