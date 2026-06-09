@@ -137,20 +137,42 @@ function M.open(buf, cfg)
     end,
   })
 
-  vim.keymap.set("t", "<C-q>", function()
-    local name = require("amanoukihashi.session").current()
-    if name then
-      require("amanoukihashi.scrollback").toggle(_win, name)
-    end
-  end, { buffer = buf, silent = true, desc = "scrollback" })
+  local function apply_term_keymaps(term_buf)
+    vim.keymap.set("t", "<C-q>", function()
+      local name = require("amanoukihashi.session").current()
+      if name then
+        require("amanoukihashi.scrollback").toggle(_win, name)
+      end
+    end, { buffer = term_buf, silent = true, desc = "scrollback" })
 
-  if cfg.layout == "split" then
-    for _, dir in ipairs({ "h", "j", "k", "l" }) do
-      vim.keymap.set("t", "<C-" .. dir .. ">", function()
-        vim.cmd.wincmd(dir)
-      end, { buffer = buf, silent = true })
+    if cfg.layout == "split" then
+      for _, dir in ipairs({ "h", "j", "k", "l" }) do
+        vim.keymap.set("t", "<C-" .. dir .. ">", function()
+          vim.cmd.wincmd(dir)
+        end, { buffer = term_buf, silent = true })
+      end
     end
   end
+
+  -- 既存のターミナルバッファ（セッション再オープン時）は即時適用
+  if vim.bo[buf].buftype == "terminal" then
+    apply_term_keymaps(buf)
+  end
+
+  -- jobstart({ term = true }) はウィンドウバッファの更新を jobstart 完了後に行うため、
+  -- TermOpen 発火時点では nvim_win_get_buf(_win) がまだ旧バッファを返す場合がある。
+  -- vim.schedule で1イベントループ遅延させてバッファ更新を待つ。
+  vim.api.nvim_create_autocmd("TermOpen", {
+    group = group,
+    callback = function(ev)
+      vim.schedule(function()
+        if not _win or not vim.api.nvim_win_is_valid(_win) then return end
+        if vim.api.nvim_win_get_buf(_win) == ev.buf then
+          apply_term_keymaps(ev.buf)
+        end
+      end)
+    end,
+  })
 
   vim.cmd("startinsert")
 end
@@ -173,6 +195,7 @@ function M.swap(buf)
   if M.is_open() then
     require("amanoukihashi.scrollback").close(_win)
     vim.api.nvim_win_set_buf(_win, buf)
+    require("amanoukihashi.session").resize(_win)
     vim.cmd("startinsert")
   end
 end

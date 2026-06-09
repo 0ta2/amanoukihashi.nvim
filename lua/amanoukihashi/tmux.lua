@@ -35,17 +35,25 @@ function M.new_session_cmd(name, cmd, width, height)
     and string.format("-x %d -y %d ", width, height)
     or ""
   return string.format(
-    "tmux new-session -d %s-s %s sh -lc %s \\; set-option -t %s status off \\; attach-session -t %s",
+    "tmux new-session -d %s-s %s sh -lc %s \\; set-option -t %s status off \\; set-option -t %s window-size latest \\; attach-session -t %s",
     size,
     vim.fn.shellescape(sn),
     vim.fn.shellescape(shell_cmd),  -- 結合済みの要素列を sh -lc の引数として保護する
+    vim.fn.shellescape(sn),
     vim.fn.shellescape(sn),
     vim.fn.shellescape(sn)
   )
 end
 
 function M.join_session_cmd(name)
-  return "tmux attach-session -t " .. vim.fn.shellescape(M.session_name(name))
+  local sn = M.session_name(name)
+  -- window-size latest: アタッチ時に新クライアントの PTY サイズをウィンドウに反映させる
+  -- デフォルト (largest) では幅が縮まらず、Neovim より広い tmux ウィンドウが残って描画崩れを起こす
+  return string.format(
+    "tmux set-option -t %s window-size latest \\; attach-session -t %s",
+    vim.fn.shellescape(sn),
+    vim.fn.shellescape(sn)
+  )
 end
 
 function M.kill_session(name)
@@ -64,6 +72,15 @@ end
 ---@class amanoukihashi.SessionInfo
 ---@field name string
 ---@field active boolean
+
+function M.send_keys(name, text)
+  tmux({ "send-keys", "-l", "-t", M.session_name(name), text })
+  tmux({ "send-keys", "-t", M.session_name(name), "Enter" })
+end
+
+function M.send_text(name, text)
+  tmux({ "send-keys", "-l", "-t", M.session_name(name), text })
+end
 
 ---@return amanoukihashi.SessionInfo[]
 function M.list_sessions()

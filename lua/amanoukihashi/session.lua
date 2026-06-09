@@ -40,13 +40,30 @@ function M.open(name, cmd, win)
   end
   -- { term = true } は jobstart 後にウィンドウのバッファを新しいターミナルバッファに置き換えるため後置
   local buf = vim.api.nvim_win_get_buf(win)
-  -- TUI アプリは自前でスクリーンを管理するため Neovim のスクロールバックは不要。
-  -- 大きな scrollback だとポップアップ描画時に行が押し出されカーソルがズレる
-  vim.bo[buf].scrollback = 1
-  sessions[name] = { buf = buf, job_id = job_id }
-  -- 新規セッションは new_session_cmd で正しいサイズを渡済み。即時 resize は不要で、
-  -- シェルの初回描画完了前に SIGWINCH が届くとカーソル位置がズレる原因になる
+  sessions[name] = { buf = buf, job_id = job_id, width = w, height = h }
+
+  -- プロセス終了時にセッションエントリを自動クリーンアップする
+  -- (TermClose 後もバッファは valid なため get/open が死んだセッションを返さないよう)
+  vim.api.nvim_create_autocmd("TermClose", {
+    buffer   = buf,
+    once     = true,
+    callback = function()
+      if sessions[name] and sessions[name].buf == buf then
+        sessions[name] = nil
+      end
+    end,
+  })
+
   return sessions[name]
+end
+
+-- Neovim のターミナルジョブだけを切断する（tmux セッションは維持）
+function M.detach(name)
+  local s = sessions[name]
+  if s then
+    pcall(vim.fn.jobstop, s.job_id)
+    sessions[name] = nil
+  end
 end
 
 -- tmux セッションを kill してテーブルから除去する
@@ -62,11 +79,15 @@ end
 
 function M.resize(win)
   local buf = vim.api.nvim_win_get_buf(win)
+  local w   = vim.api.nvim_win_get_width(win)
+  local h   = vim.api.nvim_win_get_height(win)
   for _, s in pairs(sessions) do
     if s.buf == buf and s.job_id then
-      pcall(vim.fn.jobresize, s.job_id,
-        vim.api.nvim_win_get_width(win),
-        vim.api.nvim_win_get_height(win))
+      -- サイズが変わった時だけ jobresize を呼ぶ（不要な SIGWINCH で描画中断を防ぐ）
+      if s.width ~= w or s.height ~= h then
+        s.width, s.height = w, h
+        pcall(vim.fn.jobresize, s.job_id, w, h)
+      end
       return
     end
   end

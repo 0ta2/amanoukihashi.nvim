@@ -181,4 +181,30 @@ describe("tmux", function()
       assert.same({}, result)
     end)
   end)
+
+  describe("send_keys", function()
+    it("テキストを -l でリテラル送信し Enter を別コールで送る", function()
+      local calls = {}
+      vim.fn.system = function(args)
+        calls[#calls + 1] = vim.deepcopy(args)
+        return ""
+      end
+      tmux.send_keys("default", "hello world")
+      assert.equal(2, #calls)
+      assert.same({ "tmux", "send-keys", "-l", "-t", "test_session", "hello world" }, calls[1])
+      assert.same({ "tmux", "send-keys", "-t", "test_session", "Enter" }, calls[2])
+    end)
+  end)
+
+  describe("send_text", function()
+    it("-l フラグ付きでリテラルテキストを送る", function()
+      local captured
+      vim.fn.system = function(args)
+        captured = args
+        return ""
+      end
+      tmux.send_text("default", "@lua/foo.lua")
+      assert.same({ "tmux", "send-keys", "-l", "-t", "test_session", "@lua/foo.lua" }, captured)
+    end)
+  end)
 end)
