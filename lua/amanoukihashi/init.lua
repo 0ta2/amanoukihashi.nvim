@@ -3,6 +3,7 @@ local M = {}
 function M.setup(opts)
   require("amanoukihashi.config").setup(opts)
   require("amanoukihashi.ctx").setup()
+  require("amanoukihashi.watch").enable()
 end
 
 function M.toggle(name, opts)
