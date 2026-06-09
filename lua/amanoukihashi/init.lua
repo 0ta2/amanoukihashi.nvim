@@ -7,6 +7,14 @@ function M.setup(opts)
 end
 
 function M.toggle(name, opts)
+  if not name then
+    vim.ui.input({ prompt = "session name: " }, function(input)
+      if input and input ~= "" then
+        require("amanoukihashi.toggle").toggle(input, opts)
+      end
+    end)
+    return
+  end
   require("amanoukihashi.toggle").toggle(name, opts)
 end
 

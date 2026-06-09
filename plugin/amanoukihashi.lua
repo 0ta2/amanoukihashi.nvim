@@ -1,5 +1,5 @@
 vim.api.nvim_create_user_command("AmanoukihashiToggle", function(opts)
-  require("amanoukihashi").toggle(opts.args ~= "" and opts.args or "default")
+  require("amanoukihashi").toggle(opts.args ~= "" and opts.args or nil)
 end, { nargs = "?" })
 
 vim.api.nvim_create_user_command("AmanoukihashiList", function()
