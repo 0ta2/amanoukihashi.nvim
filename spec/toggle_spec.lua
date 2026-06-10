@@ -43,6 +43,24 @@ describe("toggle", function()
 
     assert.is_nil(session.current())
     assert.is_true(closed)
-    package.loaded["amanoukihashi.window"] = nil
+    package.loaded["amanoukihashi.window"] = window
+  end)
+
+  it("window 未オープン時に focus すると window が開き session.current が name になる", function()
+    toggle.focus("test")
+
+    assert.is_true(window.is_open())
+    assert.equal("test", session.current())
+  end)
+
+  it("window オープン時に別セッションへ focus すると session.current が切り替わり window は維持される", function()
+    toggle.focus("a")
+    local win = window.win()
+
+    toggle.focus("b")
+
+    assert.is_true(window.is_open())
+    assert.equal(win, window.win())
+    assert.equal("b", session.current())
   end)
 end)
