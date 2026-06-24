@@ -10,6 +10,6 @@ vim.api.nvim_create_user_command("AmanoukihashiSend", function(opts)
   require("amanoukihashi").send(opts.args)
 end, { nargs = "+", range = true })
 
-vim.api.nvim_create_user_command("AmanoukihashiInsert", function(opts)
-  require("amanoukihashi").insert(opts.args)
+vim.api.nvim_create_user_command("AmanoukihashiSubmit", function(opts)
+  require("amanoukihashi").submit(opts.args)
 end, { nargs = "+", range = true })
