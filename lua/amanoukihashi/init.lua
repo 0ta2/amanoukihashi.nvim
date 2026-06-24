@@ -71,11 +71,11 @@ local function send_impl(expr, name, send_fn)
 end
 
 function M.send(expr, name)
-  send_impl(expr, name, function(t, n, s) t.send_keys(n, s) end)
+  send_impl(expr, name, function(t, n, s) t.send_text(n, s) end)
 end
 
-function M.insert(expr, name)
-  send_impl(expr, name, function(t, n, s) t.send_text(n, s) end)
+function M.submit(expr, name)
+  send_impl(expr, name, function(t, n, s) t.send_keys(n, s) end)
 end
 
 return M
