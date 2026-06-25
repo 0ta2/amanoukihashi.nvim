@@ -7,6 +7,8 @@ local _buf = nil
 local _anchor = nil
 local _sessions = {}
 local _cfg = nil
+local _timer = nil
+local POLL_INTERVAL_MS = 2000
 
 local function clamp_height(n, max_h)
   return math.max(math.min(n, max_h), 1)
@@ -106,11 +108,23 @@ function M.open(anchor_win, cfg)
   vim.wo[_win].cursorline     = true
   vim.keymap.set("n", "<CR>", M._on_enter,
     { buffer = _buf, silent = true, desc = "amanoukihashi: select session" })
+  _timer = assert(vim.uv.new_timer())
+  _timer:start(POLL_INTERVAL_MS, POLL_INTERVAL_MS, vim.schedule_wrap(M.refresh))
+  vim.api.nvim_create_autocmd("WinClosed", {
+    pattern = tostring(_win),
+    once = true,
+    callback = function() M.close() end,
+  })
 end
 
 function M.close()
   if M.is_open() then
     pcall(vim.api.nvim_win_close, _win, true)
+  end
+  if _timer then
+    _timer:stop()
+    if not _timer:is_closing() then _timer:close() end
+    _timer = nil
   end
   _win = nil
   _buf = nil

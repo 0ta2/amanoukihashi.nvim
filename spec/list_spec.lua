@@ -163,4 +163,27 @@ describe("list window", function()
     vim.ui.input = orig_input
     package.loaded["amanoukihashi.toggle"] = nil
   end)
+
+  it("open でタイマーが起動し close で停止する", function()
+    local orig_new_timer = vim.uv.new_timer
+    local fake_timer = { stopped = false, closed = false }
+    fake_timer.start = function(_, timeout, repeat_ms, _cb)
+      fake_timer.timeout = timeout
+      fake_timer.repeat_ms = repeat_ms
+    end
+    fake_timer.stop = function() fake_timer.stopped = true end
+    fake_timer.close = function() fake_timer.closed = true end
+    fake_timer.is_closing = function() return fake_timer.closed end
+    vim.uv.new_timer = function() return fake_timer end
+
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    assert.equal(2000, fake_timer.timeout)
+    assert.equal(2000, fake_timer.repeat_ms)
+
+    list.close()
+    assert.is_true(fake_timer.stopped)
+    assert.is_true(fake_timer.closed)
+
+    vim.uv.new_timer = orig_new_timer
+  end)
 end)
