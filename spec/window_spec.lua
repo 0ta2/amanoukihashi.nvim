@@ -10,6 +10,7 @@ local split_cfg = {
   layout = "split",
   float  = { width = 0.45, height = 0.85, border = "rounded" },
   split  = { width = 0.40 },
+  list   = { enabled = true, max_height = 8 },
 }
 
 for _, cfg in ipairs({ float_cfg, split_cfg }) do
@@ -40,6 +41,12 @@ for _, cfg in ipairs({ float_cfg, split_cfg }) do
       window.open(buf, cfg)
       window.close()
       assert.is_false(window.is_open())
+    end)
+
+    it("open 後の winbar は空文字でない (dropbar 等が term:// を上書きしないように)", function()
+      local buf = vim.api.nvim_create_buf(false, true)
+      window.open(buf, cfg)
+      assert.are_not.equal("", vim.wo[window.win()].winbar)
     end)
 
     it("swap で表示バッファが変わる", function()
@@ -99,3 +106,46 @@ for _, cfg in ipairs({ float_cfg, split_cfg }) do
     end)
   end)
 end
+
+describe("window split + list panel", function()
+  local window = require("amanoukihashi.window")
+  local list   = require("amanoukihashi.list")
+
+  before_each(function()
+    window._reset()
+    list._reset()
+    require("amanoukihashi.scrollback")._reset()
+    package.loaded["amanoukihashi.tmux"] = {
+      list_sessions = function() return { { name = "a", active = true } } end,
+    }
+    package.loaded["amanoukihashi.config"] = {
+      get = function() return split_cfg end,
+    }
+  end)
+
+  after_each(function()
+    pcall(function() if window.is_open() then window.close() end end)
+    pcall(list.close)
+    package.loaded["amanoukihashi.tmux"] = nil
+    package.loaded["amanoukihashi.config"] = nil
+  end)
+
+  it("split で open すると一覧パネルも開く", function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    window.open(buf, split_cfg)
+    assert.is_true(list.is_open())
+  end)
+
+  it("close で一覧パネルも閉じる", function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    window.open(buf, split_cfg)
+    window.close()
+    assert.is_false(list.is_open())
+  end)
+
+  it("float では一覧パネルを開かない", function()
+    local buf = vim.api.nvim_create_buf(false, true)
+    window.open(buf, float_cfg)
+    assert.is_false(list.is_open())
+  end)
+end)
