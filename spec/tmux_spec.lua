@@ -182,6 +182,60 @@ describe("tmux", function()
     end)
   end)
 
+  describe("attention_status", function()
+    local orig_getcwd
+    local orig_fnamemodify
+    local orig_sha256
+
+    before_each(function()
+      orig_getcwd      = vim.fn.getcwd
+      orig_fnamemodify = vim.fn.fnamemodify
+      orig_sha256      = vim.fn.sha256
+
+      vim.fn.getcwd = function() return "/home/user/myproject" end
+      vim.fn.fnamemodify = function(_, mod)
+        if mod == ":t" then return "myproject" end
+        return orig_fnamemodify(_, mod)
+      end
+      vim.fn.sha256 = function() return "abcdef1234567890" end
+    end)
+
+    after_each(function()
+      vim.fn.getcwd      = orig_getcwd
+      vim.fn.fnamemodify = orig_fnamemodify
+      vim.fn.sha256      = orig_sha256
+    end)
+
+    -- prefix = "amanoukihashi_myproject_abcdef_"
+
+    it("@ama_status が needs_attention のセッションのみ短縮名で true を返す", function()
+      vim.v = setmetatable({ shell_error = 0 }, { __index = orig_v })
+      vim.fn.system = function(args)
+        assert.same({ "tmux", "list-panes", "-a", "-F", "#{session_name} #{@ama_status}" }, args)
+        return "amanoukihashi_myproject_abcdef_default needs_attention\namanoukihashi_myproject_abcdef_work \n"
+      end
+      local result = tmux.attention_status()
+      assert.is_true(result["default"])
+      assert.is_nil(result["work"])
+    end)
+
+    it("cwd スコープ外のセッションは含めない", function()
+      vim.v = setmetatable({ shell_error = 0 }, { __index = orig_v })
+      vim.fn.system = function()
+        return "amanoukihashi_other_999999_default needs_attention\n"
+      end
+      local result = tmux.attention_status()
+      assert.same({}, result)
+    end)
+
+    it("tmux コマンドが失敗したとき空テーブルを返す", function()
+      vim.v = setmetatable({ shell_error = 1 }, { __index = orig_v })
+      vim.fn.system = function() return "" end
+      local result = tmux.attention_status()
+      assert.same({}, result)
+    end)
+  end)
+
   describe("send_keys", function()
     it("テキストを -l でリテラル送信し Enter を別コールで送る", function()
       local calls = {}
