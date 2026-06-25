@@ -48,6 +48,10 @@ function M.open(buf, cfg)
   vim.wo[_win].number         = false
   vim.wo[_win].relativenumber = false
   vim.wo[_win].wrap           = false
+  -- dropbar は winbar が "" (空文字) だと「未設定」と判定し TermOpen 等で自身の
+  -- breadcrumb (term:// バッファ名) を上書きしてしまうため、空文字ではなく
+  -- 無害な空白 1 文字を設定して dropbar の enable 判定 (winbar ~= '') を外す
+  vim.wo[_win].winbar         = " "
   if cfg.layout == "split" then
     vim.wo[_win].winfixwidth = true
   end
@@ -104,6 +108,7 @@ function M.open(buf, cfg)
     pattern  = tostring(_win),
     once     = true,
     callback = function()
+      require("amanoukihashi.list").close()
       _win         = nil
       _normal_mode = false
       if _showmode ~= nil then
@@ -169,16 +174,22 @@ function M.open(buf, cfg)
         if not _win or not vim.api.nvim_win_is_valid(_win) then return end
         if vim.api.nvim_win_get_buf(_win) == ev.buf then
           apply_term_keymaps(ev.buf)
+          require("amanoukihashi.list").refresh()
         end
       end)
     end,
   })
+
+  if cfg.layout == "split" and cfg.list and cfg.list.enabled then
+    require("amanoukihashi.list").open(_win, cfg)
+  end
 
   vim.cmd("startinsert")
 end
 
 function M.close()
   if M.is_open() then
+    require("amanoukihashi.list").close()
     require("amanoukihashi.scrollback").close(_win)
     _normal_mode = false
     pcall(vim.api.nvim_del_augroup_by_name, "amanoukihashi_win_" .. _win)

@@ -91,6 +91,9 @@ function M.open(anchor_win, cfg)
   vim.wo[_win].winfixwidth    = true
   vim.wo[_win].number         = false
   vim.wo[_win].relativenumber = false
+  -- このバッファは buftype=nofile で dropbar の enable 条件 (terminal/markdown/
+  -- treesitter/lsp) を満たさないため winbar 上書き対策は不要。winbar を立てると
+  -- パネル分の必要高さが画面に収まらず表示崩れの原因になるため設定しない
   vim.wo[_win].cursorline     = true
   vim.keymap.set("n", "<CR>", M._on_enter,
     { buffer = _buf, silent = true, desc = "amanoukihashi: select session" })
