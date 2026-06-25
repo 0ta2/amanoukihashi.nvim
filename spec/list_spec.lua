@@ -52,6 +52,7 @@ describe("list window", function()
       list_sessions = function()
         return { { name = "a", active = true }, { name = "b", active = false } }
       end,
+      attention_status = function() return {} end,
     }
     local _, win = H.open_anchor_win()
     anchor = win
@@ -94,10 +95,32 @@ describe("list window", function()
           { name = "c", active = false },
         }
       end,
+      attention_status = function() return {} end,
     }
     list.refresh()
     local buf = vim.api.nvim_win_get_buf(list._win_for_test())
     assert.same({ "○ a", "● b", "○ c", "+ new session" },
+      vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it("open 時に attention_status の結果が一覧に反映される", function()
+    package.loaded["amanoukihashi.tmux"].attention_status = function()
+      return { b = true }
+    end
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    local buf = vim.api.nvim_win_get_buf(list._win_for_test())
+    assert.same({ "● a", "⚠ ○ b", "+ new session" },
+      vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it("refresh 時に attention_status の結果が再反映される", function()
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    package.loaded["amanoukihashi.tmux"].attention_status = function()
+      return { a = true }
+    end
+    list.refresh()
+    local buf = vim.api.nvim_win_get_buf(list._win_for_test())
+    assert.same({ "⚠ ● a", "○ b", "+ new session" },
       vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 

@@ -12,6 +12,14 @@ local function clamp_height(n, max_h)
   return math.max(math.min(n, max_h), 1)
 end
 
+local function merge_attention(sessions)
+  local status = require("amanoukihashi.tmux").attention_status()
+  for _, s in ipairs(sessions) do
+    s.needs_attention = status[s.name] == true
+  end
+  return sessions
+end
+
 function M.render_lines(sessions)
   local lines = {}
   for _, s in ipairs(sessions) do
@@ -76,7 +84,7 @@ function M.open(anchor_win, cfg)
   if M.is_open() then return end
   _anchor = anchor_win
   _cfg = cfg
-  _sessions = require("amanoukihashi.tmux").list_sessions()
+  _sessions = merge_attention(require("amanoukihashi.tmux").list_sessions())
   _buf = vim.api.nvim_create_buf(false, true)
   vim.bo[_buf].buftype = "nofile"
   vim.bo[_buf].bufhidden = "wipe"
@@ -117,7 +125,7 @@ end
 
 function M.refresh()
   if not M.is_open() then return end
-  _sessions = require("amanoukihashi.tmux").list_sessions()
+  _sessions = merge_attention(require("amanoukihashi.tmux").list_sessions())
   local lines = apply_buf(_sessions)
   pcall(vim.api.nvim_win_set_height, _win, clamp_height(#lines, _cfg.list.max_height))
 end
