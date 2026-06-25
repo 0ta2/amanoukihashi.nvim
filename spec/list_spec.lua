@@ -13,6 +13,14 @@ describe("list.render_lines", function()
   it("セッション 0 件でも new 行だけ返す", function()
     assert.same({ "+ new session" }, list.render_lines({}))
   end)
+
+  it("needs_attention が true の行には ⚠ を前置する", function()
+    local lines = list.render_lines({
+      { name = "a", active = true, needs_attention = true },
+      { name = "b", active = false },
+    })
+    assert.same({ "⚠ ● a", "○ b", "+ new session" }, lines)
+  end)
 end)
 
 describe("list.action_for", function()

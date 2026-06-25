@@ -15,7 +15,8 @@ end
 function M.render_lines(sessions)
   local lines = {}
   for _, s in ipairs(sessions) do
-    lines[#lines + 1] = (s.active and "● " or "○ ") .. s.name
+    local mark = s.needs_attention and "⚠ " or ""
+    lines[#lines + 1] = mark .. (s.active and "● " or "○ ") .. s.name
   end
   lines[#lines + 1] = NEW_LABEL
   return lines
