@@ -88,4 +88,31 @@ describe("list window", function()
     assert.is_false(list.is_open())
     pcall(vim.api.nvim_win_close, anchor, true)
   end)
+
+  it("refresh でセッション一覧が更新される", function()
+    local abuf = vim.api.nvim_create_buf(false, true)
+    local anchor = vim.api.nvim_open_win(abuf, true, {
+      win = -1, split = "right", width = 40, style = "minimal",
+    })
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    -- セッションが増えた状態に差し替え
+    package.loaded["amanoukihashi.tmux"] = {
+      list_sessions = function()
+        return {
+          { name = "a", active = false },
+          { name = "b", active = true },
+          { name = "c", active = false },
+        }
+      end,
+    }
+    list.refresh()
+    local buf = vim.api.nvim_win_get_buf(list._win_for_test())
+    assert.same({ "○ a", "● b", "○ c", "+ new session" },
+      vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+    pcall(vim.api.nvim_win_close, anchor, true)
+  end)
+
+  it("閉じている時の refresh は no-op", function()
+    assert.has_no.errors(function() list.refresh() end)
+  end)
 end)

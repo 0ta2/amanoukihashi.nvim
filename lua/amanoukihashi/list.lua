@@ -83,4 +83,12 @@ function M._reset()
   pcall(M.close)
 end
 
+function M.refresh()
+  if not M.is_open() then return end
+  _sessions = require("amanoukihashi.tmux").list_sessions()
+  local lines = apply_buf(_sessions)
+  local max_h = require("amanoukihashi.config").get().list.max_height
+  pcall(vim.api.nvim_win_set_height, _win, math.max(math.min(#lines, max_h), 1))
+end
+
 return M
