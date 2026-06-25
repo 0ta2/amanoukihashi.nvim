@@ -11,6 +11,10 @@ local defaults = {
   split = {
     width = 0.40,
   },
+  list = {
+    enabled = true,
+    max_height = 8,
+  },
 }
 
 local cfg = vim.deepcopy(defaults)
