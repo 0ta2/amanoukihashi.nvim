@@ -6,6 +6,11 @@ local _win = nil
 local _buf = nil
 local _anchor = nil
 local _sessions = {}
+local _cfg = nil
+
+local function clamp_height(n, max_h)
+  return math.max(math.min(n, max_h), 1)
+end
 
 function M.render_lines(sessions)
   local lines = {}
@@ -43,17 +48,39 @@ local function apply_buf(sessions)
   return lines
 end
 
-function M._on_enter() end
+function M._on_enter()
+  if not M.is_open() then return end
+  local line = vim.api.nvim_win_get_cursor(_win)[1]
+  local action, s = M.action_for(line, _sessions)
+  if action == "refocus" then
+    if _anchor and vim.api.nvim_win_is_valid(_anchor) then
+      vim.api.nvim_set_current_win(_anchor)
+    end
+  elseif action == "switch" then
+    require("amanoukihashi.toggle").focus(s.name)
+    M.refresh()
+  else
+    vim.ui.input({ prompt = "session name: " }, function(input)
+      if input and input ~= "" then
+        -- 新規セッションは jobstart が非同期なため、ここで refresh しても
+        -- tmux 上にまだセッションが存在せず無駄になる。window.lua の
+        -- TermOpen ハンドラ経由の refresh に任せる
+        require("amanoukihashi.toggle").focus(input)
+      end
+    end)
+  end
+end
 
 function M.open(anchor_win, cfg)
   if M.is_open() then return end
   _anchor = anchor_win
+  _cfg = cfg
   _sessions = require("amanoukihashi.tmux").list_sessions()
   _buf = vim.api.nvim_create_buf(false, true)
   vim.bo[_buf].buftype = "nofile"
   vim.bo[_buf].bufhidden = "wipe"
   local lines = apply_buf(_sessions)
-  local h = math.max(math.min(#lines, cfg.list.max_height), 1)
+  local h = clamp_height(#lines, cfg.list.max_height)
   _win = vim.api.nvim_open_win(_buf, false, {
     win = anchor_win,
     split = "above",
@@ -77,6 +104,7 @@ function M.close()
   _buf = nil
   _anchor = nil
   _sessions = {}
+  _cfg = nil
 end
 
 function M._reset()
@@ -87,8 +115,7 @@ function M.refresh()
   if not M.is_open() then return end
   _sessions = require("amanoukihashi.tmux").list_sessions()
   local lines = apply_buf(_sessions)
-  local max_h = require("amanoukihashi.config").get().list.max_height
-  pcall(vim.api.nvim_win_set_height, _win, math.max(math.min(#lines, max_h), 1))
+  pcall(vim.api.nvim_win_set_height, _win, clamp_height(#lines, _cfg.list.max_height))
 end
 
 return M
