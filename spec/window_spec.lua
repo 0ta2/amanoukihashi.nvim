@@ -117,6 +117,7 @@ describe("window split + list panel", function()
     require("amanoukihashi.scrollback")._reset()
     package.loaded["amanoukihashi.tmux"] = {
       list_sessions = function() return { { name = "a", active = true } } end,
+      attention_status = function() return {} end,
     }
     package.loaded["amanoukihashi.config"] = {
       get = function() return split_cfg end,

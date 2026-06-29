@@ -13,6 +13,14 @@ describe("list.render_lines", function()
   it("セッション 0 件でも new 行だけ返す", function()
     assert.same({ "+ new session" }, list.render_lines({}))
   end)
+
+  it("needs_attention が true の行には ⚠ を前置する", function()
+    local lines = list.render_lines({
+      { name = "a", active = true, needs_attention = true },
+      { name = "b", active = false },
+    })
+    assert.same({ "⚠ ● a", "○ b", "+ new session" }, lines)
+  end)
 end)
 
 describe("list.action_for", function()
@@ -44,6 +52,7 @@ describe("list window", function()
       list_sessions = function()
         return { { name = "a", active = true }, { name = "b", active = false } }
       end,
+      attention_status = function() return {} end,
     }
     local _, win = H.open_anchor_win()
     anchor = win
@@ -86,10 +95,32 @@ describe("list window", function()
           { name = "c", active = false },
         }
       end,
+      attention_status = function() return {} end,
     }
     list.refresh()
     local buf = vim.api.nvim_win_get_buf(list._win_for_test())
     assert.same({ "○ a", "● b", "○ c", "+ new session" },
+      vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it("open 時に attention_status の結果が一覧に反映される", function()
+    package.loaded["amanoukihashi.tmux"].attention_status = function()
+      return { b = true }
+    end
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    local buf = vim.api.nvim_win_get_buf(list._win_for_test())
+    assert.same({ "● a", "⚠ ○ b", "+ new session" },
+      vim.api.nvim_buf_get_lines(buf, 0, -1, false))
+  end)
+
+  it("refresh 時に attention_status の結果が再反映される", function()
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    package.loaded["amanoukihashi.tmux"].attention_status = function()
+      return { a = true }
+    end
+    list.refresh()
+    local buf = vim.api.nvim_win_get_buf(list._win_for_test())
+    assert.same({ "⚠ ● a", "○ b", "+ new session" },
       vim.api.nvim_buf_get_lines(buf, 0, -1, false))
   end)
 
@@ -131,5 +162,28 @@ describe("list window", function()
     assert.equal("newsess", focused)
     vim.ui.input = orig_input
     package.loaded["amanoukihashi.toggle"] = nil
+  end)
+
+  it("open でタイマーが起動し close で停止する", function()
+    local orig_new_timer = vim.uv.new_timer
+    local fake_timer = { stopped = false, closed = false }
+    fake_timer.start = function(_, timeout, repeat_ms, _cb)
+      fake_timer.timeout = timeout
+      fake_timer.repeat_ms = repeat_ms
+    end
+    fake_timer.stop = function() fake_timer.stopped = true end
+    fake_timer.close = function() fake_timer.closed = true end
+    fake_timer.is_closing = function() return fake_timer.closed end
+    vim.uv.new_timer = function() return fake_timer end
+
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    assert.equal(2000, fake_timer.timeout)
+    assert.equal(2000, fake_timer.repeat_ms)
+
+    list.close()
+    assert.is_true(fake_timer.stopped)
+    assert.is_true(fake_timer.closed)
+
+    vim.uv.new_timer = orig_new_timer
   end)
 end)

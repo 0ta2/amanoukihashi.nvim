@@ -9,6 +9,13 @@ local function cwd_prefix()
   return PREFIX .. dir .. "_" .. hash .. "_"
 end
 
+local function strip_prefix(full_name, prefix)
+  if full_name:sub(1, #prefix) == prefix then
+    return full_name:sub(#prefix + 1)
+  end
+  return nil
+end
+
 local function tmux(args)
   local out = vim.fn.system(vim.list_extend({ "tmux" }, args))
   if vim.v.shell_error ~= 0 and out ~= "" then
@@ -91,12 +98,29 @@ function M.list_sessions()
   local current = require("amanoukihashi.session").current()
   local result  = {}
   for line in out:gmatch("[^\n]+") do
-    if line:sub(1, #prefix) == prefix then
-      local name = line:sub(#prefix + 1)
+    local name = strip_prefix(line, prefix)
+    if name then
       result[#result + 1] = { name = name, active = name == current }
     end
   end
   return result
+end
+
+---@return table<string, boolean>
+function M.attention_status()
+  local prefix = cwd_prefix()
+  local out = vim.fn.system({ "tmux", "list-panes", "-a", "-F", "#{session_name} #{@ama_status}" })
+  if vim.v.shell_error ~= 0 then return {} end
+
+  local status = {}
+  for line in out:gmatch("[^\n]+") do
+    local full_name, st = line:match("^(%S+) (%S*)$")
+    if full_name and st == "needs_attention" then
+      local name = strip_prefix(full_name, prefix)
+      if name then status[name] = true end
+    end
+  end
+  return status
 end
 
 return M

@@ -7,15 +7,26 @@ local _buf = nil
 local _anchor = nil
 local _sessions = {}
 local _cfg = nil
+local _timer = nil
+local POLL_INTERVAL_MS = 2000
 
 local function clamp_height(n, max_h)
   return math.max(math.min(n, max_h), 1)
 end
 
+local function merge_attention(sessions)
+  local status = require("amanoukihashi.tmux").attention_status()
+  for _, s in ipairs(sessions) do
+    s.needs_attention = status[s.name] == true
+  end
+  return sessions
+end
+
 function M.render_lines(sessions)
   local lines = {}
   for _, s in ipairs(sessions) do
-    lines[#lines + 1] = (s.active and "● " or "○ ") .. s.name
+    local mark = s.needs_attention and "⚠ " or ""
+    lines[#lines + 1] = mark .. (s.active and "● " or "○ ") .. s.name
   end
   lines[#lines + 1] = NEW_LABEL
   return lines
@@ -75,7 +86,7 @@ function M.open(anchor_win, cfg)
   if M.is_open() then return end
   _anchor = anchor_win
   _cfg = cfg
-  _sessions = require("amanoukihashi.tmux").list_sessions()
+  _sessions = merge_attention(require("amanoukihashi.tmux").list_sessions())
   _buf = vim.api.nvim_create_buf(false, true)
   vim.bo[_buf].buftype = "nofile"
   vim.bo[_buf].bufhidden = "wipe"
@@ -97,11 +108,23 @@ function M.open(anchor_win, cfg)
   vim.wo[_win].cursorline     = true
   vim.keymap.set("n", "<CR>", M._on_enter,
     { buffer = _buf, silent = true, desc = "amanoukihashi: select session" })
+  _timer = assert(vim.uv.new_timer())
+  _timer:start(POLL_INTERVAL_MS, POLL_INTERVAL_MS, vim.schedule_wrap(M.refresh))
+  vim.api.nvim_create_autocmd("WinClosed", {
+    pattern = tostring(_win),
+    once = true,
+    callback = function() M.close() end,
+  })
 end
 
 function M.close()
   if M.is_open() then
     pcall(vim.api.nvim_win_close, _win, true)
+  end
+  if _timer then
+    _timer:stop()
+    if not _timer:is_closing() then _timer:close() end
+    _timer = nil
   end
   _win = nil
   _buf = nil
@@ -116,7 +139,7 @@ end
 
 function M.refresh()
   if not M.is_open() then return end
-  _sessions = require("amanoukihashi.tmux").list_sessions()
+  _sessions = merge_attention(require("amanoukihashi.tmux").list_sessions())
   local lines = apply_buf(_sessions)
   pcall(vim.api.nvim_win_set_height, _win, clamp_height(#lines, _cfg.list.max_height))
 end
