@@ -173,6 +173,9 @@ function M.open(buf, cfg)
       vim.schedule(function()
         if not _win or not vim.api.nvim_win_is_valid(_win) then return end
         if vim.api.nvim_win_get_buf(_win) == ev.buf then
+          -- jobstart の buf 置換で winbar が "" にリセットされ dropbar が
+          -- TermOpen/BufEnter で term:// を上書きするため、ここで再設定する
+          vim.wo[_win].winbar = " "
           apply_term_keymaps(ev.buf)
           require("amanoukihashi.list").refresh()
         end
