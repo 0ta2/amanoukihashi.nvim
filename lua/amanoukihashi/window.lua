@@ -37,21 +37,25 @@ function M.win()
   return _win
 end
 
+local function apply_win_opts(win)
+  -- signcolumn/statuscolumn の左パディングはターミナルのリフロー計算と干渉するため無効化
+  vim.wo[win].signcolumn     = "no"
+  vim.wo[win].statuscolumn   = ""
+  vim.wo[win].number         = false
+  vim.wo[win].relativenumber = false
+  vim.wo[win].wrap           = false
+  -- dropbar は winbar が "" (空文字) だと「未設定」と判定し TermOpen 等で自身の
+  -- breadcrumb (term:// バッファ名) を上書きしてしまうため、空文字ではなく
+  -- 無害な空白 1 文字を設定して dropbar の enable 判定 (winbar ~= '') を外す
+  vim.wo[win].winbar         = " "
+end
+
 function M.open(buf, cfg)
   if M.is_open() then M.close() end
   _cfg = cfg
   local opts = cfg.layout == "split" and split_opts(cfg) or float_opts(cfg)
   _win = vim.api.nvim_open_win(buf, true, opts)
-  -- signcolumn/statuscolumn の左パディングはターミナルのリフロー計算と干渉するため無効化
-  vim.wo[_win].signcolumn     = "no"
-  vim.wo[_win].statuscolumn   = ""
-  vim.wo[_win].number         = false
-  vim.wo[_win].relativenumber = false
-  vim.wo[_win].wrap           = false
-  -- dropbar は winbar が "" (空文字) だと「未設定」と判定し TermOpen 等で自身の
-  -- breadcrumb (term:// バッファ名) を上書きしてしまうため、空文字ではなく
-  -- 無害な空白 1 文字を設定して dropbar の enable 判定 (winbar ~= '') を外す
-  vim.wo[_win].winbar         = " "
+  apply_win_opts(_win)
   if cfg.layout == "split" then
     vim.wo[_win].winfixwidth = true
   end
@@ -173,6 +177,7 @@ function M.open(buf, cfg)
       vim.schedule(function()
         if not _win or not vim.api.nvim_win_is_valid(_win) then return end
         if vim.api.nvim_win_get_buf(_win) == ev.buf then
+          apply_win_opts(_win)
           apply_term_keymaps(ev.buf)
           require("amanoukihashi.list").refresh()
         end
@@ -206,6 +211,7 @@ function M.swap(buf)
   if M.is_open() then
     require("amanoukihashi.scrollback").close(_win)
     vim.api.nvim_win_set_buf(_win, buf)
+    apply_win_opts(_win)
     require("amanoukihashi.session").resize(_win)
     vim.cmd("startinsert")
   end
