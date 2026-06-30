@@ -78,4 +78,22 @@ function M.submit(expr, name)
   send_impl(expr, name, function(t, n, s) t.send_keys(n, s) end)
 end
 
+function M.fork(name)
+  name = name or require("amanoukihashi.session").current()
+  if not name then
+    vim.notify("amanoukihashi: no active session", vim.log.levels.WARN)
+    return
+  end
+  local claude_id = require("amanoukihashi.tmux").claude_session_id(name)
+  if not claude_id then
+    vim.notify("amanoukihashi: Claude session ID not found (hook が未設定の可能性)", vim.log.levels.ERROR)
+    return
+  end
+  vim.ui.input({ prompt = "fork session name: " }, function(input)
+    if not input or input == "" then return end
+    local fork_cmd = { "claude", "--resume", claude_id, "--fork-session" }
+    require("amanoukihashi.toggle").toggle(input, { cmd = fork_cmd })
+  end)
+end
+
 return M

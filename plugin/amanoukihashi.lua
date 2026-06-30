@@ -13,3 +13,7 @@ end, { nargs = "+", range = true })
 vim.api.nvim_create_user_command("AmanoukihashiSubmit", function(opts)
   require("amanoukihashi").submit(opts.args)
 end, { nargs = "+", range = true })
+
+vim.api.nvim_create_user_command("AmanoukihashiFork", function(opts)
+  require("amanoukihashi").fork(opts.args ~= "" and opts.args or nil)
+end, { nargs = "?", desc = "Fork current Claude session" })
