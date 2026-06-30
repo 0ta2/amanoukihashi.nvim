@@ -123,4 +123,12 @@ function M.attention_status()
   return status
 end
 
+function M.claude_session_id(name)
+  local sn = M.session_name(name)
+  local out = vim.fn.system({ "tmux", "show-options", "-p", "-v", "-t", sn, "@ama_claude_session_id" })
+  if vim.v.shell_error ~= 0 then return nil end
+  local id = vim.trim(out)
+  return id ~= "" and id or nil
+end
+
 return M

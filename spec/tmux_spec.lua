@@ -261,4 +261,32 @@ describe("tmux", function()
       assert.same({ "tmux", "send-keys", "-l", "-t", "test_session", "@lua/foo.lua" }, captured)
     end)
   end)
+
+  describe("claude_session_id", function()
+    it("pane option から Claude session ID を返す", function()
+      vim.v = setmetatable({ shell_error = 0 }, { __index = orig_v })
+      vim.fn.system = function(args)
+        assert.same({ "tmux", "show-options", "-p", "-v", "-t", "test_session", "@ama_claude_session_id" }, args)
+        return "abc-123-def\n"
+      end
+      local result = tmux.claude_session_id("default")
+      assert.equal("abc-123-def", result)
+    end)
+
+    it("pane option が空のとき nil を返す", function()
+      vim.v = setmetatable({ shell_error = 0 }, { __index = orig_v })
+      vim.fn.system = function()
+        return "\n"
+      end
+      local result = tmux.claude_session_id("default")
+      assert.is_nil(result)
+    end)
+
+    it("tmux コマンドが失敗したとき nil を返す", function()
+      vim.v = setmetatable({ shell_error = 1 }, { __index = orig_v })
+      vim.fn.system = function() return "" end
+      local result = tmux.claude_session_id("default")
+      assert.is_nil(result)
+    end)
+  end)
 end)
