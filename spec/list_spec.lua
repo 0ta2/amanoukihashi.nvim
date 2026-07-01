@@ -186,4 +186,28 @@ describe("list window", function()
 
     vim.uv.new_timer = orig_new_timer
   end)
+
+  it("f キーで選択中のセッションから fork が呼ばれる", function()
+    local forked_name
+    package.loaded["amanoukihashi"] = { fork = function(n) forked_name = n end }
+    package.loaded["amanoukihashi.toggle"] = { focus = function() end }
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    vim.api.nvim_set_current_win(list._win_for_test())
+    vim.api.nvim_win_set_cursor(list._win_for_test(), { 2, 0 }) -- "○ b"
+    list._on_fork()
+    assert.equal("b", forked_name)
+    package.loaded["amanoukihashi"] = nil
+    package.loaded["amanoukihashi.toggle"] = nil
+  end)
+
+  it("f キーを new 行で押しても fork は呼ばれない", function()
+    local called = false
+    package.loaded["amanoukihashi"] = { fork = function() called = true end }
+    list.open(anchor, { list = { enabled = true, max_height = 8 } })
+    vim.api.nvim_set_current_win(list._win_for_test())
+    vim.api.nvim_win_set_cursor(list._win_for_test(), { 3, 0 }) -- "+ new session"
+    list._on_fork()
+    assert.is_false(called)
+    package.loaded["amanoukihashi"] = nil
+  end)
 end)

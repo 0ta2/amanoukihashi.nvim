@@ -154,3 +154,66 @@ describe("amanoukihashi.toggle", function()
     package.loaded["amanoukihashi.session"] = nil
   end)
 end)
+
+describe("fork", function()
+  local ama = require("amanoukihashi")
+  local session = require("amanoukihashi.session")
+  local orig_session_current
+  local orig_tmux
+
+  before_each(function()
+    orig_session_current = session.current
+    orig_tmux = package.loaded["amanoukihashi.tmux"]
+  end)
+
+  after_each(function()
+    session.current = orig_session_current
+    package.loaded["amanoukihashi.tmux"] = orig_tmux
+  end)
+
+  it("claude_session_id が nil のとき ERROR を通知する", function()
+    session.current = function() return "main" end
+    package.loaded["amanoukihashi.tmux"] = {
+      claude_session_id = function() return nil end,
+    }
+    local notified
+    local orig_notify = vim.notify
+    vim.notify = function(msg, level)
+      notified = { msg = msg, level = level }
+    end
+    ama.fork()
+    assert.equal(vim.log.levels.ERROR, notified.level)
+    vim.notify = orig_notify
+  end)
+
+  it("active session がないとき WARN を通知する", function()
+    session.current = function() return nil end
+    local notified
+    local orig_notify = vim.notify
+    vim.notify = function(msg, level)
+      notified = { msg = msg, level = level }
+    end
+    ama.fork()
+    assert.equal(vim.log.levels.WARN, notified.level)
+    vim.notify = orig_notify
+  end)
+
+  it("session_id 取得成功時に toggle が fork コマンドで呼ばれる", function()
+    session.current = function() return "main" end
+    package.loaded["amanoukihashi.tmux"] = {
+      claude_session_id = function() return "uuid-123" end,
+    }
+    local toggled
+    package.loaded["amanoukihashi.toggle"] = {
+      toggle = function(name, opts) toggled = { name = name, opts = opts } end,
+      focus = function() end,
+    }
+    local orig_input = vim.ui.input
+    vim.ui.input = function(_, cb) cb("forked") end
+    ama.fork()
+    assert.equal("forked", toggled.name)
+    assert.same({ "claude", "--resume", "uuid-123", "--fork-session" }, toggled.opts.cmd)
+    vim.ui.input = orig_input
+    package.loaded["amanoukihashi.toggle"] = nil
+  end)
+end)

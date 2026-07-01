@@ -82,6 +82,14 @@ function M._on_enter()
   end
 end
 
+function M._on_fork()
+  if not M.is_open() then return end
+  local line = vim.api.nvim_win_get_cursor(_win)[1]
+  if line >= 1 and line <= #_sessions then
+    require("amanoukihashi").fork(_sessions[line].name)
+  end
+end
+
 function M.open(anchor_win, cfg)
   if M.is_open() then return end
   _anchor = anchor_win
@@ -108,6 +116,8 @@ function M.open(anchor_win, cfg)
   vim.wo[_win].cursorline     = true
   vim.keymap.set("n", "<CR>", M._on_enter,
     { buffer = _buf, silent = true, desc = "amanoukihashi: select session" })
+  vim.keymap.set("n", "f", M._on_fork,
+    { buffer = _buf, silent = true, desc = "amanoukihashi: fork session" })
   _timer = assert(vim.uv.new_timer())
   _timer:start(POLL_INTERVAL_MS, POLL_INTERVAL_MS, vim.schedule_wrap(M.refresh))
   vim.api.nvim_create_autocmd("WinClosed", {

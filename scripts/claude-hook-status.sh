@@ -1,17 +1,9 @@
 #!/bin/bash
-# Claude Code の Notification/UserPromptSubmit hook から呼ばれ、
-# tmux pane-local option @ama_status に状態を書き込む。
+# Claude Code の hook から呼ばれ、tmux pane-local option に状態を書き込む。
 # amanoukihashi 管理外の tmux セッションでは何もしない。
 set -euo pipefail
 
 input=$(cat)
-if printf '%s' "$input" | grep -q '"hook_event_name"[[:space:]]*:[[:space:]]*"Notification"'; then
-  event="Notification"
-elif printf '%s' "$input" | grep -q '"hook_event_name"[[:space:]]*:[[:space:]]*"UserPromptSubmit"'; then
-  event="UserPromptSubmit"
-else
-  exit 0
-fi
 
 if [ -z "${TMUX:-}" ]; then
   exit 0
@@ -25,11 +17,14 @@ case "$session" in
   *) exit 0 ;;
 esac
 
-case "$event" in
-  Notification)
-    tmux set-option -p @ama_status needs_attention
-    ;;
-  UserPromptSubmit)
-    tmux set-option -p @ama_status ""
-    ;;
-esac
+# session_id を hook ペイロードから抽出して pane option に保存
+session_id=$(printf '%s' "$input" | grep -o '"session_id"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed 's/.*"session_id"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || true)
+if [ -n "$session_id" ]; then
+  tmux set-option -p @ama_claude_session_id "$session_id"
+fi
+
+if printf '%s' "$input" | grep -q '"hook_event_name"[[:space:]]*:[[:space:]]*"Notification"'; then
+  tmux set-option -p @ama_status needs_attention
+elif printf '%s' "$input" | grep -q '"hook_event_name"[[:space:]]*:[[:space:]]*"UserPromptSubmit"'; then
+  tmux set-option -p @ama_status ""
+fi
